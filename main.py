@@ -119,25 +119,35 @@ def duel(gotchi1_traits, gotchi2_traits, gotchi1_name, gotchi2_name):
         winner = "Gotchi1"
 
     return winner, rounds, hp1, hp2
-if st.button("Battle!"):
-    # Call the `duel` function to simulate a battle
-    gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
-    gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
-    winner, rounds, hp1, hp2 = duel(traits, traits2,gotchi1_name,gotchi2_name)
+gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
+gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
+if gotchi1_name != gotchi2_name:
+        if st.button("Battle!"):
+            # Call the `duel` function to simulate a battle
+            gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
+            gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
 
-    # Add Gotchi names and HP to the DataFrame
-    df = pd.DataFrame(rounds, columns=["Trait", "Direction", "Attacker Trait", "Defender Trait", "Damage","attacker_hp","defender_hp","atacker_name","defender_name"])
 
 
-    st.table(df)
 
-    if winner == "Gotchi1":
-        st.write(f"{gotchi1_name} WINS with {hp1} HP left")
-    elif winner == "Gotchi2":
-        st.write(f"{gotchi2_name} WINS with {hp2} HP left")
-    else:
-        st.write("TIE!")
 
+
+            winner, rounds, hp1, hp2 = duel(traits, traits2, gotchi1_name, gotchi2_name)
+
+            # Add Gotchi names and HP to the DataFrame
+            df = pd.DataFrame(rounds, columns=["Trait", "Direction", "Attacker Trait", "Defender Trait", "Damage","attacker_hp","defender_hp","atacker_name","defender_name"])
+
+
+            st.table(df)
+
+            if winner == "Gotchi1":
+                st.write(f"{gotchi1_name} WINS with {hp1} HP left")
+            elif winner == "Gotchi2":
+                st.write(f"{gotchi2_name} WINS with {hp2} HP left")
+            else:
+                st.write("TIE!")
+else:
+    st.warning('SAME GOTCHIS CANT FIGHT')
 
 
 
