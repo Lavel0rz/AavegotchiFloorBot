@@ -137,7 +137,7 @@ if gotchi1_name != gotchi2_name:
             # Add Gotchi names and HP to the DataFrame
             df = pd.DataFrame(rounds, columns=["Trait", "Direction", "Attacker Trait", "Defender Trait", "Damage","attacker_hp","defender_hp","atacker_name","defender_name"])
 
-
+            df["Direction"] = df["Direction"].apply(lambda x: "↑" if x == 1 else "↓")
             st.table(df)
 
             if winner == "Gotchi1":
