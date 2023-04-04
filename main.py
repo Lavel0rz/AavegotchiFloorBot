@@ -41,9 +41,9 @@ gotchi2 = st.selectbox('Select Gotchi2',ls_gotchis)
 traits = ls_traits[ls_gotchis.index(gotchi1)]
 traits2 = ls_traits[ls_gotchis.index(gotchi2)]
 st.write(traits,ls_names[ls_gotchis.index(gotchi1)])
-st.image(contract.functions.getAavegotchiSvg(ls_gotchis[ls_gotchis.index(gotchi1)]).call())
+st.write(contract.functions.getAavegotchiSvg(ls_gotchis[ls_gotchis.index(gotchi1)]).call(),unsafe_allow_html=True)
 st.write(traits2,ls_names[ls_gotchis.index(gotchi2)])
-st.image(contract.functions.getAavegotchiSvg(ls_gotchis[ls_gotchis.index(gotchi2)]).call())
+st.write(contract.functions.getAavegotchiSvg(ls_gotchis[ls_gotchis.index(gotchi2)]).call(),unsafe_allow_html=True)
 random_numbers = [random.randint(0, 5) for _ in range(100)]
 random_direction = [random.randint(0, 1) for _ in range(100)]
 
