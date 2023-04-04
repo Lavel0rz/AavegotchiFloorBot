@@ -6,7 +6,7 @@ import random
 from ABI import *
 
 
-web3 = Web3(Web3.HTTPProvider(('https://polygon-mainnet.infura.io/v3/496529dab76f4d8d981bcab8f10df625')))
+web3 = Web3(Web3.HTTPProvider((st.secrets['api']))
 address = '0x86935F11C86623deC8a25696E1C19a8659CbF95d'
 
 contract = web3.eth.contract(address=address, abi=abi)
