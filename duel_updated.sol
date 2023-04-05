@@ -8,6 +8,7 @@ contract AavegotchiBattle is VRFConsumerBase {
     bytes32 private keyHash;
     uint256 private fee;
     IERC20 public alchemicaToken;
+    bytes32[] public openDuels;
 
     event RoundCompleted(
         bytes32 indexed requestId,
@@ -56,42 +57,63 @@ contract AavegotchiBattle is VRFConsumerBase {
         aavegotchis[msg.sender] = Aavegotchi(id, name, traits);
     }
 
-    function createDuel(uint256 stake) public returns (bytes32) {
-        require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
+                function createDuel(uint256 stake) public returns (bytes32) {
+                require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
 
-        bytes32 requestId = requestRandomness(keyHash, fee);
-        duels[requestId] = Duel(msg.sender, address(0), aavegotchis[msg.sender], Aavegotchi(0, "", [uint8(0), 0, 0, 0, 0, 0]), stake, false, requestId);
-        return requestId;
-    }
+                bytes32 requestId = requestRandomness(keyHash, fee);
+                duels[requestId] = Duel(msg.sender, address(0), aavegotchis[msg.sender], Aavegotchi(0, "", [uint8(0), 0, 0, 0, 0, 0]), stake, false, requestId);
 
-    function joinDuel(bytes32 requestId, uint256 stake) public {
-        require(duels[requestId].player1 != address(0), "Duel not found");
-        require(duels[requestId].player2 == address(0), "Duel already has two players");
-        require(duels[requestId].stake == stake, "Stake amount does not match");
-        require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
+                openDuels.push(requestId); // Add requestId to openDuels array
 
-        duels[requestId].player2 = msg.sender;
-        duels[requestId].aavegotchi2 = aavegotchis[msg.sender];
-        duels[requestId].active = true;
-    }
+                return requestId;
+            }
 
-        function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        require(duels[requestId].player1 != address(0) && duels[requestId].player2 != address(0), "Duel not found or not active");
 
-        (uint8 winner, uint8[6] memory damage) = simulateDuel(
-            duels[requestId].aavegotchi1.traits,
-            duels[requestId].aavegotchi2.traits,
-            randomness
-        );
+        function joinDuel(bytes32 requestId, uint256 stake) public {
+            require(duels[requestId].player1 != address(0), "Duel not found");
+            require(duels[requestId].player2 == address(0), "Duel already has two players");
+            require(duels[requestId].stake == stake, "Stake amount does not match");
+            require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
 
-        if (winner == 1) {
-            alchemicaToken.transfer(duels[requestId].player1, duels[requestId].stake * 2);
-        } else {
-            alchemicaToken.transfer(duels[requestId].player2, duels[requestId].stake * 2);
+            duels[requestId].player2 = msg.sender;
+            duels[requestId].aavegotchi2 = aavegotchis[msg.sender];
+            duels[requestId].active = true;
+
+            // Remove requestId from openDuels array
+            for (uint256 i = 0; i < openDuels.length; i++) {
+                if (openDuels[i] == requestId) {
+                    openDuels[i] = openDuels[openDuels.length - 1];
+                    openDuels.pop();
+                    break;
+                }
+            }
         }
 
-        delete duels[requestId];
-    }
+
+        function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+            require(duels[requestId].player1 != address(0) && duels[requestId].player2 != address(0), "Duel not found or not active");
+
+            (uint8 winner, uint8[6] memory damage) = simulateDuel(
+                duels[requestId].aavegotchi1.traits,
+                duels[requestId].aavegotchi2.traits,
+                randomness
+            );
+
+            if (winner == 1) {
+                alchemicaToken.transfer(duels[requestId].player1, duels[requestId].stake * 2);
+            } else {
+                alchemicaToken.transfer(duels[requestId].player2, duels[requestId].stake * 2);
+            }
+
+            delete duels[requestId];
+        }
+        function getOpenDuelsCount() public view returns (uint256) {
+                return openDuels.length;
+            }
+        function getOpenDuelRequestId(uint256 index) public view returns (bytes32) {
+            require(index < openDuels.length, "Index out of bounds");
+            return openDuels[index];
+        }
 
     function simulateDuel(
         uint8[6] memory traits1,
