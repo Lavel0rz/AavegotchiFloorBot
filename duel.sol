@@ -1,112 +1,130 @@
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.0;
 
-contract GotchiDuel {
-    // Define a struct to store the values of a Gotchi's traits
-    struct GotchiTraits {
-        uint8[6] values;
+import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+
+contract AavegotchiBattle is VRFConsumerBase {
+    bytes32 private keyHash;
+    uint256 private fee;
+    IERC20 public alchemicaToken;
+
+
+    struct Aavegotchi {
+        uint256 id;
+        string name;
+        uint8[6] traits;
     }
 
-    // Define an enum to represent the different types of traits
-    enum Trait {NRG, AGG, SPK, BRN, EYES, EYEC}
+    struct Duel {
+        address player1;
+        address player2;
+        Aavegotchi aavegotchi1;
+        Aavegotchi aavegotchi2;
+        uint256 stake;
+        bool active;
+        bytes32 requestId;
+    }
 
-    // Define a constant for the maximum HP of a Gotchi
-    uint8 constant MAX_HP = 150;
+    mapping(address => Aavegotchi) public aavegotchis;
+    mapping(bytes32 => Duel) public duels;
 
-    // Define a constant array of all possible traits
-    Trait[6] constant TRAITS = [Trait.NRG, Trait.AGG, Trait.SPK, Trait.BRN, Trait.EYES, Trait.EYEC];
+   constructor(
+    address _vrfCoordinator,
+    address _linkToken,
+    bytes32 _keyHash,
+    uint256 _fee,
+    address _alchemicaToken
+) VRFConsumerBase(_vrfCoordinator, _linkToken) public {
+    keyHash = _keyHash;
+    fee = _fee;
+    alchemicaToken = IERC20(_alchemicaToken);
+}
 
-    /**
-     * @dev Given the attacker and defender trait values, and a direction (0 or 1),
-     * calculate the amount of damage the attacker should inflict on the defender.
-     *
-     * @param attackerTrait The value of the attacker's trait
-     * @param defenderTrait The value of the defender's trait
-     * @param direction The direction of the trait comparison (0 for attacker < defender, 1 for attacker > defender)
-     * @return The amount of damage the attacker should inflict on the defender
-     */
-    function calculateDamage(uint8 attackerTrait, uint8 defenderTrait, uint8 direction) internal pure returns (uint8) {
-        uint8 damage;
+
+    function createAavegotchi(uint256 id, string memory name, uint8[6] memory traits) public {
+        aavegotchis[msg.sender] = Aavegotchi(id, name, traits);
+    }
+
+    function createDuel(uint256 stake) public returns (bytes32) {
+        require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
+
+        bytes32 requestId = requestRandomness(keyHash, fee);
+        duels[requestId] = Duel(msg.sender, address(0), aavegotchis[msg.sender], Aavegotchi(0, "", [uint8(0), 0, 0, 0, 0, 0]), stake, false, requestId);
+        return requestId;
+    }
+
+    function joinDuel(bytes32 requestId, uint256 stake) public {
+        require(duels[requestId].player1 != address(0), "Duel not found");
+        require(duels[requestId].player2 == address(0), "Duel already has two players");
+        require(duels[requestId].stake == stake, "Stake amount does not match");
+        require(aavegotchis[msg.sender].id != 0, "Aavegotchi not found for the player");
+
+        duels[requestId].player2 = msg.sender;
+        duels[requestId].aavegotchi2 = aavegotchis[msg.sender];
+        duels[requestId].active = true;
+    }
+
+    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+        require(duels[requestId].player1 != address(0) && duels[requestId].player2 != address(0), "Duel not found or not active");
+
+        // Use the randomness to simulate the duel and determine the winner
+        (uint8 winner, uint8[6] memory damage) = simulateDuel(duels[requestId].aavegotchi1.traits, duels[requestId].aavegotchi2.traits, randomness);
+
+        // Distribute the stake to the winner
+        if (winner == 1) {
+    // Player 1 wins
+    alchemicaToken.transferFrom(duels[requestId].player2, duels[requestId].player1, duels[requestId].stake);
+} else if (winner == 2) {
+    // Player 2 wins
+    alchemicaToken.transferFrom(duels[requestId].player1, duels[requestId].player2, duels[requestId].stake);
+} else {
+    // Tie - return the staked tokens to both players
+}
+
+        // Remove the duel from the mapping
+        delete duels[requestId];
+    }
+    function simulateDuel(uint8[6] memory traits1, uint8[6] memory traits2, uint256 randomness) private pure returns (uint8, uint8[6] memory) {
+    uint8[6] memory damage;
+    uint8[6] memory totalDamage;
+    uint8 winner = 0;
+    uint256 hp1 = 150;
+    uint256 hp2 = 150;
+
+    // Use the randomness value to generate random numbers
+    uint256 seed = randomness;
+
+    for (uint8 i = 0; i < 100 && hp1 > 0 && hp2 > 0; i++) {
+        uint256 randomValue = uint256(keccak256(abi.encodePacked(seed, i)));
+        uint8 randomTraitIndex = uint8(randomValue % 6);
+
+        uint256 randomDirectionValue = uint256(keccak256(abi.encodePacked(seed, i + 100)));
+        uint8 direction = uint8(randomDirectionValue % 2);
+
+        uint8 attackerTrait = direction == 0 ? traits1[randomTraitIndex] : traits2[randomTraitIndex];
+        uint8 defenderTrait = direction == 0 ? traits2[randomTraitIndex] : traits1[randomTraitIndex];
+
+        uint8 currentDamage = attackerTrait > defenderTrait ? attackerTrait - defenderTrait : defenderTrait - attackerTrait;
+        damage[randomTraitIndex] += currentDamage;
+
         if (direction == 0) {
-            damage = attackerTrait > defenderTrait ? attackerTrait - defenderTrait : defenderTrait - attackerTrait;
+            hp2 -= currentDamage;
         } else {
-            damage = attackerTrait < defenderTrait ? defenderTrait - attackerTrait : attackerTrait - defenderTrait;
+            hp1 -= currentDamage;
         }
-        return damage;
     }
 
-    /**
-     * @dev Simulate a duel between two Gotchis with the given traits and names.
-     * The duel consists of a series of rounds, each of which pits the two Gotchis
-     * against each other in a random trait comparison. The winner of each round
-     * inflicts damage on the loser, and the duel ends when one Gotchi's HP reaches 0.
-     *
-     * @param gotchi1Traits The traits of the first Gotchi
-     * @param gotchi2Traits The traits of the second Gotchi
-     * @param gotchi1Name The name of the first Gotchi
-     * @param gotchi2Name The name of the second Gotchi
-     * @return A tuple containing the name of the winner, an array of the rounds that took place,
-     * and the final HP of both Gotchis (in the order they were given)
-     */
-    function duel(GotchiTraits memory gotchi1Traits, GotchiTraits memory gotchi2Traits, string memory gotchi1Name, string memory gotchi2Name) public view returns (string memory, bytes32[][] memory, uint8, uint8) {
-        // Initialize the HP of both Gotchis to the maximum
-        uint8 hp1 = MAX_HP;
-        uint8 hp2 = MAX_HP;
-
-        // Initialize an empty array to store the rounds that took place
-        bytes32[][] memory rounds = new bytes32[][](0);
-
-        // Loop through rounds until one Gotchi's HP reaches 0
-        while (hp1 > 0 && hp2 > 0) {
-            // Choose a random direction (0 or 1) and trait for the round
-            uint8 direction = uint8(block.timestamp) % 2;
-            Trait trait = Trait(uint8(block.difficulty) % 6);
-
-            // Get the trait values of each Gotchi for the chosen trait
-            uint8 attackerTrait = gotchi1Traits.values[uint8(trait)];
-            uint8 defenderTrait = gotchi2Traits.values[uint8(trait)];
-
-            // Calculate the amount of damage the attacker should inflict on the defender
-            uint8 damage = calculateDamage(attackerTrait, defenderTrait, direction);
-
-            // Determine which Gotchi won the round and inflict damage on the loser
-            if (damage == 0) {
-                // If the damage is 0, the round is a tie and no damage is inflicted
-                rounds[rounds.length - 1].push(bytes32(0));
-            } else if (direction == 0) {
-                // If the direction is 0, the attacker should have a lower trait value than the defender
-                if (attackerTrait < defenderTrait) {
-                    hp1 = hp1 > damage ? hp1 - damage : 0;
-                    rounds[rounds.length - 1].push(keccak256(abi.encodePacked(gotchi2Name, trait, damage)));
-                } else {
-                    hp2 = hp2 > damage ? hp2 - damage : 0;
-                    rounds[rounds.length - 1].push(keccak256(abi.encodePacked(gotchi1Name, trait, damage)));
-                }
-            } else {
-                // If the direction is 1, the attacker should have a higher trait value than the defender
-                if (attackerTrait > defenderTrait) {
-                    hp1 = hp1 > damage ? hp1 - damage : 0;
-                    rounds[rounds.length - 1].push(keccak256(abi.encodePacked(gotchi2Name, trait, damage)));
-                } else {
-                    hp2 = hp2 > damage ? hp2 - damage : 0;
-                    rounds[rounds.length - 1].push(keccak256(abi.encodePacked(gotchi1Name, trait, damage)));
-                }
-            }
-
-            // If neither Gotchi has lost yet, start a new round
-            if (hp1 > 0 && hp2 > 0) {
-                rounds.push(new bytes32[](0));
-            }
-        }
-
-    // Determine the winner of the duel based on which Gotchi has more HP
-    string memory winner;
-    if (hp1 > hp2) {
-        winner = gotchi1Name;
+    if (hp1 > 0 && hp2 > 0) {
+        winner = 0; // Tie
+    } else if (hp1 > 0) {
+        winner = 1; // Gotchi1 wins
     } else {
-        winner = gotchi2Name;
+        winner = 2; // Gotchi2 wins
     }
 
-    // Return the winner's name, the rounds that took place, and the final HP of both Gotchis
-    return (winner, rounds, hp1, hp2);
+    totalDamage = damage;
+
+    return (winner, totalDamage);
 }
 }
