@@ -82,7 +82,18 @@ contract AavegotchiBattle is VRFConsumerBase {
     require(IERC721(aavegotchiContract).ownerOf(_aavegotchiTokenId) == msg.sender, "Only the owner of the Aavegotchi can join the duel");
     require(alchemicaToken.balanceOf(msg.sender) >= duel.stake, "Insufficient Alchemica balance");
 
-    alchemicaToken.transferFrom(msg.sender, address(this), duel.stake);
+    // Calculate the fee amounts
+    uint256 devFee = duel.stake / 40; // 2.5%
+    uint256 burnFee = duel.stake / 40; // 2.5%
+    uint256 totalFee = devFee + burnFee;
+
+    // Transfer the fee amounts to the dev and burn addresses
+    alchemicaToken.transfer(devAddress, devFee);
+    alchemicaToken.transfer(burnAddress, burnFee);
+
+    // Transfer the remaining stake to the contract
+    alchemicaToken.transferFrom(msg.sender, address(this), duel.stake - totalFee);
+
     duel.player2 = msg.sender;
     duel.aavegotchi2TokenId = _aavegotchiTokenId;
     duel.aavegotchi2Traits = getAavegotchiTraits(_aavegotchiTokenId);
