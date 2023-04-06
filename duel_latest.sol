@@ -1,6 +1,6 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.8.0;
 
-import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Enumerable.sol";
@@ -51,7 +51,7 @@ contract AavegotchiBattle is VRFConsumerBase {
         uint256 _fee,
         address _alchemicaToken,
         address _aavegotchiContract
-    ) VRFConsumerBase(_vrfCoordinator, _linkToken) public {
+    ) VRFConsumerBase(_vrfCoordinator, _linkToken) {
         keyHash = _keyHash;
         fee = _fee;
         alchemicaToken = IERC20(_alchemicaToken);
@@ -62,125 +62,174 @@ contract AavegotchiBattle is VRFConsumerBase {
         require(IERC721(aavegotchiContract).ownerOf(_aavegotchiTokenId) == msg.sender, "Only the owner of the Aavegotchi can create a duel");
         bytes32 requestId = requestRandomness(keyHash, fee);
 
-        duels[requestId] = Duel({
-            player1: msg.sender,
-            player2: address(0),
-            aavegotchi1TokenId: _aavegotchiTokenId,
-            aavegotchi2TokenId: 0,
-            aavegotchi1Traits: getAavegotchiTraits(_aavegotchiTokenId),
-            aavegotchi2Traits: [0, 0, 0, 0, 0, 0],
-            stake: _stake,
-            active: false,
-            requestId: requestId
-        });
+        Duel storage newDuel = duels[requestId];
+        newDuel.player1 = msg.sender;
+        newDuel.aavegotchi1TokenId = _aavegotchiTokenId;
+        newDuel.aavegotchi1Traits = getAavegotchiTraits(_aavegotchiTokenId);
+        newDuel.stake = _stake;
+        newDuel.active = false;
+        newDuel.requestId = requestId;
 
         openDuels.push(requestId);
 
         return requestId;
     }
-
     function joinDuel(bytes32 _requestId, uint256 _aavegotchiTokenId) public {
-        require(duels[_requestId].player1 != address(0), "Duel not found");
-        require(duels[_requestId].player2 == address(0), "Duel already has two players");
-        require(duels[_requestId].stake > 0, "Stake amount must be greater than zero");
-        require(IERC721(aavegotchiContract).ownerOf(_aavegotchiTokenId) == msg.sender, "Only the owner of the Aavegotchi can join the duel");
+    Duel storage duel = duels[_requestId];
+    require(duel.player1 != address(0), "Duel not found");
+    require(duel.player2 == address(0), "Duel already has two players");
+    require(duel.stake > 0, "Stake amount must be greater than zero");
+    require(IERC721(aavegotchiContract).ownerOf(_aavegotchiTokenId) == msg.sender, "Only the owner of the Aavegotchi can join the duel");
+    require(alchemicaToken.balanceOf(msg.sender) >= duel.stake, "Insufficient Alchemica balance");
 
-        duels[_requestId].player2 = msg.sender;
-        duels[_requestId].aavegotchi2TokenId = _aavegotchiTokenId;
-        duels[_requestId].aavegotchi2Traits = getAavegotchiTraits(_aavegotchiTokenId);
-        duels[_requestId].active = true;
+    alchemicaToken.transferFrom(msg.sender, address(this), duel.stake);
+    duel.player2 = msg.sender;
+    duel.aavegotchi2TokenId = _aavegotchiTokenId;
+    duel.aavegotchi2Traits = getAavegotchiTraits(_aavegotchiTokenId);
+    duel.active = true;
 
-        // Remove requestId from openDuels array
-        for (uint256 i = 0; i < openDuels.length; i++) {
-            if (openDuels[i] == _requestId) {
-                openDuels[i] = openDuels[openDuels.length - 1];
-                openDuels.pop();
-                break;
-            }
+    // Remove requestId from openDuels array
+    for (uint256 i = 0; i < openDuels.length; i++) {
+        if (openDuels[i] == _requestId) {
+            openDuels[i] = openDuels[openDuels.length - 1];
+            openDuels.pop();
+            break;
         }
     }
 
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        require(duels[requestId].player1 != address(0) && duels[requestId].player2 != address(0), "Duel not found or not active");
+    bytes32 requestId = duels[_requestId].requestId;
+    require(requestId != 0, "Invalid request ID");
+    require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK to fulfill randomness request");
+    require(duel.active, "Duel is not active");
+    require(!duel.resolved, "Duel has already been resolved");
 
-        (uint8 winner, uint256[2] memory totalDamage) = simulateDuel(
-            duels[requestId].aavegotchi1Traits,
-            duels[requestId].aavegotchi2Traits,
-            randomness
-        );
+    uint256 randomSeed = uint256(keccak256(abi.encodePacked(requestId, block.number, block.timestamp)));
 
-        if (winner == 1) {
-            alchemicaToken.transfer(duels[requestId].player1, duels[requestId].stake * 2);
-        } else {
-            alchemicaToken.transfer(duels[requestId].player2, duels[requestId].stake * 2);
-        }
+    bytes32 _requestId = requestRandomness(keyHash, fee, randomSeed);
+    requestIdToDuelId[_requestId] = _requestId;
 
-        delete duels[requestId];
+    emit RequestedRandomness(_requestId);
+}
+
+function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+    Duel storage duel = duels[requestId];
+    require(duel.player1 != address(0) && duel.player2 != address(0), "Duel not found or not active");
+
+    // Fix: use a local variable to store the winner
+    uint8 winner;
+
+    (winner, duel.totalDamage) = simulateDuel(
+        duel.aavegotchi1Traits,
+        duel.aavegotchi2Traits,
+        randomness
+    );
+
+    if (winner == 1) {
+        alchemicaToken.transfer(duel.player1, duel.stake * 2);
+    } else {
+        alchemicaToken.transfer(duel.player2, duel.stake * 2);
     }
 
-    function getOpenDuelsCount() public view returns (uint256) {
-        return openDuels.length;
-    }
+    emit RoundCompleted(
+        requestId,
+        duel.currentRound,
+        duel.randomTraitIndex,
+        duel.direction,
+        duel.attackerTrait,
+        duel.defenderTrait,
+        duel.currentDamage,
+        duel.hp1,
+        duel.hp2
+    );
 
-    function getOpenDuelRequestId(uint256 index) public view returns (bytes32) {
-        require(index < openDuels.length, "Index out of bounds");
-        return openDuels[index];
-    }
+    delete duels[requestId];
+}
 
-    function simulateDuel(
-        uint8[6] memory traits1,
-        uint8[6] memory traits2,
-        uint256 randomness
-    ) public returns (uint8, uint256[2] memory) {
-        uint256 hp1 = 100
-        uint256 hp2 = 100;
-        uint8 currentRound = 1;
+function simulateDuel(
+    uint8[6] memory traits1,
+    uint8[6] memory traits2,
+    uint256 randomness
+) public pure returns (uint8, uint256[2] memory) {
+    uint256 hp1 = 100;
+    uint256 hp2 = 100;
+    uint8 currentRound = 1;
+    uint8 attackerTrait;
+    uint8 defenderTrait;
+    uint8 currentDamage;
+    uint256[2] memory totalDamage;
+
+    while (hp1 > 0 && hp2 > 0 && currentRound <= 10) {
         uint8 randomTraitIndex = uint8(randomness % 6);
-        uint8 direction = uint8(randomness % 2);
-        uint8 attackerTrait;
-        uint8 defenderTrait;
-        uint8 currentDamage;
+        randomness = uint256(keccak256(abi.encode(randomness)));
 
-        while (hp1 > 0 && hp2 > 0 && currentRound <= 10) {
-            if (direction == 0) {
+        uint8 direction = uint8(randomness % 2);
+        randomness = uint256(keccak256(abi.encode(randomness)));
+
+        if (direction == 0) {
+            if (traits1[randomTraitIndex] < traits2[randomTraitIndex]) {
                 attackerTrait = traits1[randomTraitIndex];
                 defenderTrait = traits2[randomTraitIndex];
             } else {
                 attackerTrait = traits2[randomTraitIndex];
                 defenderTrait = traits1[randomTraitIndex];
             }
-
-            currentDamage = calculateDamage(attackerTrait, defenderTrait);
-            if (direction == 0) {
-                hp2 = (hp2 >= currentDamage) ? hp2 - currentDamage : 0;
+        } else {
+            if (traits1[randomTraitIndex] > traits2[randomTraitIndex]) {
+                attackerTrait = traits1[randomTraitIndex];
+                defenderTrait = traits2[randomTraitIndex];
             } else {
-                hp1 = (hp1 >= currentDamage) ? hp1 - currentDamage : 0;
+                attackerTrait = traits2[randomTraitIndex];
+                defenderTrait = traits1[randomTraitIndex];
+            }
+        }
+
+        currentDamage = calculateDamage(attackerTrait, defenderTrait);
+
+        if (direction == 0) {
+            hp2 = (hp2 >= currentDamage) ? hp2 - currentDamage : 0;
+        } else {
+            hp1 = (hp1 >= currentDamage) ? hp1 - currentDamage : 0;
+        }
+
+        totalDamage[direction] += currentDamage;
+
+        // Next round
+        currentRound++;
+    }
+
+    if (hp1 > hp2) {
+        return (1, totalDamage);
+    } else {
+        return (2, totalDamage);
+    }
+}
+
+function calculateDamage(uint8 attackerTrait, uint8 defenderTrait) internal pure returns (uint8) {
+                return abs(int(attackerTrait) - int(defenderTrait));
             }
 
-            emit RoundCompleted(requestId, currentRound, randomTraitIndex, direction, attackerTrait, defenderTrait, currentDamage, hp1, hp2);
+function cancelDuel(bytes32 _requestId) public {
+    Duel storage duel = duels[_requestId];
+    require(duel.player1 == msg.sender, "Only the creator of the duel can cancel it");
+    require(!duel.active, "Duel is already active");
 
-            // Next round
-            randomTraitIndex = uint8(uint256(keccak256(abi.encode(randomTraitIndex, direction, randomness, currentRound))));
-            direction = uint8(uint256(keccak256(abi.encode(direction, randomness, currentRound))));
-            currentRound++;
-        }
+    alchemicaToken.transfer(duel.player1, duel.stake);
 
-        if (hp1 > 0) {
-            return (1, [100 - hp1, 100 - hp2]);
-        } else {
-            return (2, [100 - hp2, 100 - hp1]);
-        }
-    }
-
-    function calculateDamage(uint8 attackerTrait, uint8 defenderTrait) internal pure returns (uint8) {
-        if (attackerTrait == defenderTrait) {
-            return 10;
-        } else if ((attackerTrait == 1 && defenderTrait == 3) || (attackerTrait == 2 && defenderTrait == 1) || (attackerTrait == 3 && defenderTrait == 2)) {
-            return 20;
-        } else {
-            return 5;
+    // Remove requestId from openDuels array
+    for (uint256 i = 0; i < openDuels.length; i++) {
+        if (openDuels[i] == _requestId) {
+            openDuels[i] = openDuels[openDuels.length - 1];
+            openDuels.pop();
+            break;
         }
     }
+
+    delete duels[_requestId];
+}
+
+function abs(int x) internal pure returns (uint8) {
+    return x >= 0 ? uint8(x) : uint8(-x);
+}
 
     function getAavegotchiTraits(uint256 _tokenId) internal view returns (uint8[6] memory) {
         (, , uint8[6] memory traits) = aavegotchiContract.getAavegotchi(_tokenId);
@@ -188,4 +237,5 @@ contract AavegotchiBattle is VRFConsumerBase {
     }
 }
 }
+
 
