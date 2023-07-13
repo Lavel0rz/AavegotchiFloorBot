@@ -1,4 +1,4 @@
-https://lavel0rz-aavegotchifloorbot-main-67bhg2.streamlit.app/
+https://gotchiduels.streamlit.app/
 
 In this game, two Aavegotchis battle against each other using their six traits: NRG, AGG, SPK, BRN, EYES, and EYEC. Each trait has a value between 0 and 99(can exceed with wearables).
 
