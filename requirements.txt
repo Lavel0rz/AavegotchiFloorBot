@@ -4,6 +4,6 @@ cairocffi
 cairosvg
 
 
-cairo
+
 
 
