@@ -65,12 +65,36 @@ def calculate_damage(attacker_trait, defender_trait, direction):
     return damage
 
 
+def display_round_results(df):
+    st.write("### Battle Round Results")
+    st.table(df)
+
+
+def display_winner(winner, hp1, hp2):
+    if winner == "Gotchi1":
+        st.success(f"{gotchi1_name} WINS with {hp1} HP left")
+    elif winner == "Gotchi2":
+        st.success(f"{gotchi2_name} WINS with {hp2} HP left")
+    else:
+        st.warning("TIE!")
+
+
+def display_round(round_data):
+    st.write(f"## Round {round_data['Round']}")
+    st.write(f"{round_data['attacker_name']} vs {round_data['defender_name']}")
+    st.write(f"Trait: {round_data['Trait']} (Direction: {'↑' if round_data['Direction'] == 1 else '↓'})")
+    st.write(f"Attacker Trait: {round_data['Attacker Trait']}, Defender Trait: {round_data['Defender Trait']}")
+    st.write(f"Damage: {round_data['Damage']}")
+    st.write(
+        f"{round_data['attacker_name']} HP: {round_data['attacker_hp']}, {round_data['defender_name']} HP: {round_data['defender_hp']}")
+    st.write("---")
+
 
 def duel(gotchi1_traits, gotchi2_traits, gotchi1_name, gotchi2_name):
     hp1 = 150
     hp2 = 150
     rounds = []
-    while hp1 > 0 and hp2 > 0:# Changed to a fixed number of rounds for example purposes
+    while hp1 > 0 and hp2 > 0:
         direction = random.randint(0, 1)
         trait_name = random.choice(TRAITS)
         trait_index = TRAITS.index(trait_name)
@@ -109,7 +133,21 @@ def duel(gotchi1_traits, gotchi2_traits, gotchi1_name, gotchi2_name):
             attacker_hp = hp1
             defender_hp = hp2
 
-        rounds.append([trait_name, trait_direction, attacker_trait, defender_trait, damage, attacker_hp, defender_hp, attacker_name, defender_name])
+        rounds.append({
+            "Round": len(rounds) + 1,
+            "Trait": trait_name,
+            "Direction": direction,
+            "Attacker Trait": attacker_trait,
+            "Defender Trait": defender_trait,
+            "Damage": damage,
+            "attacker_hp": attacker_hp,
+            "defender_hp": defender_hp,
+            "attacker_name": attacker_name,
+            "defender_name": defender_name
+        })
+
+        display_round(rounds[-1])
+        time.sleep(1)  # Adjust the sleep time (in seconds) to control the pause between each round
 
     if hp1 <= 0 and hp2 <= 0:
         winner = "Tie"
@@ -119,36 +157,27 @@ def duel(gotchi1_traits, gotchi2_traits, gotchi1_name, gotchi2_name):
         winner = "Gotchi1"
 
     return winner, rounds, hp1, hp2
-gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
-gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
-if gotchi1_name != gotchi2_name:
+
+
+def main():
+    global gotchi1_name, gotchi2_name  # Declare the variables as global
+
+    gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
+    gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
+
+    if gotchi1_name != gotchi2_name:
         if st.button("Battle!"):
-            # Call the `duel` function to simulate a battle
-            gotchi1_name = ls_names[ls_gotchis.index(gotchi1)]
-            gotchi2_name = ls_names[ls_gotchis.index(gotchi2)]
-
-
-
-
-
-
             winner, rounds, hp1, hp2 = duel(traits, traits2, gotchi1_name, gotchi2_name)
-
-            # Add Gotchi names and HP to the DataFrame
-            df = pd.DataFrame(rounds, columns=["Trait", "Direction", "Attacker Trait", "Defender Trait", "Damage","attacker_hp","defender_hp","atacker_name","defender_name"])
-
+            df = pd.DataFrame(rounds,
+                              columns=["Round", "Trait", "Direction", "Attacker Trait", "Defender Trait", "Damage",
+                                       "attacker_hp", "defender_hp", "attacker_name", "defender_name"])
             df["Direction"] = df["Direction"].apply(lambda x: "↑" if x == 1 else "↓")
-            st.table(df)
 
-            if winner == "Gotchi1":
-                st.write(f"{gotchi1_name} WINS with {hp1} HP left")
-            elif winner == "Gotchi2":
-                st.write(f"{gotchi2_name} WINS with {hp2} HP left")
-            else:
-                st.write("TIE!")
-else:
-    st.warning('SAME GOTCHIS CANT FIGHT')
+            display_round_results(df)
+            display_winner(winner, hp1, hp2)
+    else:
+        st.warning('SAME GOTCHIS CANT FIGHT')
 
 
-
-
+if __name__ == "__main__":
+    main()
