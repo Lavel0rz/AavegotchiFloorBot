@@ -84,7 +84,7 @@ def overlay_health_bar(svg_str, hp, damage):
     hp_after_damage = max(0, hp - damage) / total_hp
 
     # Calculate the width of green and red parts
-    bar_width = 65
+    bar_width = 300
     green_width = int(attacker_health * bar_width)
     red_width = bar_width - green_width
 
