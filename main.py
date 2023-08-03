@@ -125,10 +125,10 @@ def display_round(round_data):
     # Display SVG images
     col1, col2 = st.columns(2)
     with col1:
-        st.image(combined_attacker_svg, use_column_width=True)
+        st.write(combined_attacker_svg, unsafe_allow_html=True)
         st.write(f"HP: {round_data['attacker_hp']}")
     with col2:
-        st.image(combined_defender_svg, use_column_width=True)
+        st.write(combined_defender_svg, unsafe_allow_html=True)
         st.write(f"HP: {round_data['defender_hp']}")
 
     st.write("---")
