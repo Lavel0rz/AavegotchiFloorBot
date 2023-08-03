@@ -1,4 +1,11 @@
 web3
 pandas
+cairocffi
 cairosvg
+libcairo2-dev
+libffi-dev
+cairo-devel
+libffi-devel
+cairo
+
 
