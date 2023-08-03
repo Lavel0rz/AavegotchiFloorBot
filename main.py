@@ -1,14 +1,13 @@
 import streamlit as st
-from web3 import Web3
-import pandas as pd
-import ast
-import random
-from ABI import *
 import time
-from PIL import Image
-import numpy as np
+import random
+import pandas as pd
+from web3 import Web3
+from ABI import *
+
 import io
-import cairosvg
+import os
+
 web3 = Web3(Web3.HTTPProvider((st.secrets['api'])))
 address = '0x86935F11C86623deC8a25696E1C19a8659CbF95d'
 
