@@ -1,0 +1,15 @@
+[build]
+  command = "streamlit run main.py"  # Command to run your Streamlit app
+  publish = "."  # The root directory where your Streamlit app resides
+
+[build.environment]
+  PYTHON_VERSION = "3.8"  # Set the Python version to 3.8 (adjust if needed)
+
+[build.environment.variables]
+  LC_ALL = "C.UTF-8"  # Set the locale to avoid UnicodeDecodeError in Streamlit
+
+[build.environment]
+  STREAMLIT_VERSION = "0.89.0"  # Set the version of Streamlit you are using (adjust if needed)
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
