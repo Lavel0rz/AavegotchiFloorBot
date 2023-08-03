@@ -3,9 +3,7 @@ pandas
 cairocffi
 cairosvg
 
-libffi-dev
-cairo-devel
-libffi-devel
+
 cairo
 
 
