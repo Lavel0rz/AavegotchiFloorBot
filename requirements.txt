@@ -1,4 +1,4 @@
 web3
 pandas
 cairosvg
-PIL
+
