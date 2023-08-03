@@ -6,6 +6,3 @@
   PYTHON_VERSION = "3.8"  # Set the Python version to 3.8 (adjust if needed)
   LC_ALL = "C.UTF-8"  # Set the locale to avoid UnicodeDecodeError in Streamlit
   STREAMLIT_VERSION = "0.89.0"  # Set the version of Streamlit you are using (adjust if needed)
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
