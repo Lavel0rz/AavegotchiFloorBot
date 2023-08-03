@@ -1,5 +1,5 @@
 [build]
-  command = "streamlit run main.py"  # Command to run your Streamlit app
+  command = "pip install streamlit && streamlit run main.py"  # Command to install Streamlit and run your app
   publish = "."  # The root directory where your Streamlit app resides
 
 [build.environment]
