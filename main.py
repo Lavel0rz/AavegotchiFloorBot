@@ -27,7 +27,7 @@ During the battle, a random trait is selected, and the Aavegotchi with the highe
 The damage dealt by the attack is calculated as the absolute difference between the attacker's and defender's trait values. The Aavegotchi that receives the damage will lose health points (HP) equal to the damage dealt. The battle continues in this way, with a new trait and direction randomly selected each round, until one of the Aavegotchis has no more HP remaining.
 
 The Aavegotchi that wins the battle is the one with remaining HP.''')
-from PIL import Image
+
 owner = '0x39292E0157EF646cc9EA65dc48F8F91Cae009EAe'
 import numpy as np
 aa_ids = contract3.functions.allAavegotchisOfOwner(owner).call()
@@ -64,8 +64,7 @@ def calculate_damage(attacker_trait, defender_trait, direction):
 
     damage = abs(attacker_value - defender_value)
     return damage
-import io
-import cairosvg
+
 def display_round_results(df):
     st.write("### Battle Round Results")
     st.table(df)
