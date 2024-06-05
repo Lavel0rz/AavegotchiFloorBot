@@ -1,4 +1,5 @@
 import streamlit as st
+import asyncio
 import time
 import random
 import pandas as pd
