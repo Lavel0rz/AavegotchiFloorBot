@@ -4,7 +4,7 @@ import asyncio
 import time
 import random
 import pandas as pd
-
+import nest_asyncio
 from ABI import *
 nest_asyncio.apply()
 
