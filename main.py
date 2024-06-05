@@ -4,14 +4,14 @@ import asyncio
 import time
 import random
 import pandas as pd
-import nest_asyncio
+
 from ABI import *
-nest_asyncio.apply()
+
 
 if not asyncio.get_event_loop().is_running():
     asyncio.set_event_loop(asyncio.new_event_loop())
 
-import nest_asyncio
+
 from web3 import Web3
 import io
 import os
