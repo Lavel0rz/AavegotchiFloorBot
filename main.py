@@ -6,11 +6,12 @@ import random
 import pandas as pd
 
 from ABI import *
-
-
-if not asyncio.get_event_loop().is_running():
-    asyncio.set_event_loop(asyncio.new_event_loop())
-
+# Ensure there's an asyncio event loop in the current thread
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
 from web3 import Web3
 import io
