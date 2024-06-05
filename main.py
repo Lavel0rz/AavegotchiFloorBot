@@ -1,4 +1,4 @@
-from web3 import Web3
+
 import streamlit as st
 import asyncio
 import time
@@ -6,15 +6,15 @@ import random
 import pandas as pd
 
 from ABI import *
-import nest_asyncio
-
-import io
-import os
-
 nest_asyncio.apply()
 
 if not asyncio.get_event_loop().is_running():
     asyncio.set_event_loop(asyncio.new_event_loop())
+
+import nest_asyncio
+from web3 import Web3
+import io
+import os
 
 web3 = Web3(Web3.HTTPProvider((st.secrets['api'])))
 address = '0x86935F11C86623deC8a25696E1C19a8659CbF95d'
