@@ -9,6 +9,9 @@ from ABI import *
 import io
 import os
 
+if not asyncio.get_event_loop().is_running():
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 web3 = Web3(Web3.HTTPProvider((st.secrets['api'])))
 address = '0x86935F11C86623deC8a25696E1C19a8659CbF95d'
 
